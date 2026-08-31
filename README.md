@@ -33,6 +33,15 @@ kubernetes/  deployment and service manifests
 Jenkinsfile  build, ECR push, k3s deployment, rollout check
 ```
 
+## Verification
+
+The complete pipeline has been verified in AWS:
+
+- Jenkins checked out the repository, validated the application, built the image, and pushed versioned images to Amazon ECR.
+- Jenkins deployed the image to k3s and confirmed the Kubernetes rollout.
+- The `delivery-api` pod is running and the `/health` endpoint returns `{"status":"ok"}`.
+- The application is available through Traefik at the EC2 public HTTP endpoint while the lab host is running.
+
 ## Status
 
-Infrastructure is provisioned and the EC2 host is configured with Docker, Jenkins, k3s, Git, AWS CLI, and kubectl. The application container was built and its health endpoint verified locally. The Jenkins pipeline is ready to deploy the application to Amazon ECR and k3s.
+Completed and verified as a portfolio lab. Destroy the Terraform-managed resources when the demonstration is no longer needed to avoid AWS charges.
