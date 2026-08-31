@@ -39,15 +39,19 @@ pipeline {
       steps {
         sh '''
           kubectl apply -f kubernetes/namespace.yaml
-          aws ecr get-login-password --region "$AWS_REGION" | \
-            kubectl create secret docker-registry ecr-registry \
+          set +x
+          ECR_PASSWORD="$(aws ecr get-login-password --region "$AWS_REGION")"
+          kubectl create secret docker-registry ecr-registry \
               --namespace "$NAMESPACE" \
               --docker-server="$ECR_REGISTRY" \
               --docker-username=AWS \
-              --docker-password-stdin \
+              --docker-password="$ECR_PASSWORD" \
               --dry-run=client -o yaml | kubectl apply -f -
+          unset ECR_PASSWORD
+          set -x
           envsubst < kubernetes/deployment.yaml | kubectl apply -f -
           kubectl apply -f kubernetes/service.yaml
+          kubectl apply -f kubernetes/ingress.yaml
           kubectl rollout status deployment/delivery-api --namespace "$NAMESPACE" --timeout=180s
         '''
       }
