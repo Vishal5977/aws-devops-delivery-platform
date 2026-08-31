@@ -6,6 +6,7 @@ pipeline {
     ECR_REGISTRY = '711387129093.dkr.ecr.ap-south-1.amazonaws.com'
     IMAGE_NAME   = 'aws-devops-platform-app'
     NAMESPACE    = 'devops-platform'
+    KUBECONFIG   = '/var/lib/jenkins/.kube/config'
   }
 
   stages {
