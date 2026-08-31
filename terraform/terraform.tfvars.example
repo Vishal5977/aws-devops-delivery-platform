@@ -1,0 +1,2 @@
+key_name         = "aws-devops-platform-key"
+allowed_ssh_cidr = "your-public-ip/32"

@@ -1,0 +1,113 @@
+---
+- name: Configure the AWS DevOps delivery platform host
+  hosts: platform
+  become: true
+  vars:
+    docker_apt_arch: amd64
+
+  tasks:
+    - name: Install prerequisite packages
+      ansible.builtin.apt:
+        name: [ca-certificates, curl, git, gnupg, lsb-release, unzip, python3-pip, awscli, gettext-base]
+        state: present
+        update_cache: true
+
+    - name: Create Docker keyring directory
+      ansible.builtin.file:
+        path: /etc/apt/keyrings
+        state: directory
+        mode: '0755'
+
+    - name: Download Docker signing key
+      ansible.builtin.get_url:
+        url: https://download.docker.com/linux/ubuntu/gpg
+        dest: /etc/apt/keyrings/docker.asc
+        mode: '0644'
+
+    - name: Configure Docker package repository
+      ansible.builtin.apt_repository:
+        repo: "deb [arch={{ docker_apt_arch }} signed-by=/etc/apt/keyrings/docker.asc] https://download.docker.com/linux/ubuntu {{ ansible_distribution_release }} stable"
+        filename: docker
+        state: present
+
+    - name: Install Docker Engine
+      ansible.builtin.apt:
+        name: [docker-ce, docker-ce-cli, containerd.io, docker-buildx-plugin, docker-compose-plugin]
+        state: present
+        update_cache: true
+
+    - name: Start and enable Docker
+      ansible.builtin.service:
+        name: docker
+        state: started
+        enabled: true
+
+    - name: Download Jenkins signing key
+      ansible.builtin.get_url:
+        url: https://pkg.jenkins.io/debian-stable/jenkins.io-2026.key
+        dest: /usr/share/keyrings/jenkins-2026-keyring.asc
+        mode: '0644'
+
+    - name: Configure Jenkins package repository
+      ansible.builtin.apt_repository:
+        repo: "deb [signed-by=/usr/share/keyrings/jenkins-2026-keyring.asc] https://pkg.jenkins.io/debian-stable binary/"
+        filename: jenkins
+        state: present
+
+    - name: Install Java 21 and Jenkins
+      ansible.builtin.apt:
+        name: [fontconfig, openjdk-21-jre, jenkins]
+        state: present
+        update_cache: true
+
+    - name: Allow Jenkins to run Docker commands
+      ansible.builtin.user:
+        name: jenkins
+        groups: docker
+        append: true
+
+    - name: Install k3s
+      ansible.builtin.shell: curl -sfL https://get.k3s.io | sh -
+      args:
+        creates: /usr/local/bin/k3s
+
+    - name: Create the Jenkins Kubernetes configuration directory
+      ansible.builtin.file:
+        path: /var/lib/jenkins/.kube
+        state: directory
+        owner: jenkins
+        group: jenkins
+        mode: '0700'
+
+    - name: Make the k3s configuration available to Jenkins
+      ansible.builtin.copy:
+        src: /etc/rancher/k3s/k3s.yaml
+        dest: /var/lib/jenkins/.kube/config
+        remote_src: true
+        owner: jenkins
+        group: jenkins
+        mode: '0600'
+
+    - name: Make kubectl available as a standard command
+      ansible.builtin.file:
+        src: /usr/local/bin/k3s
+        dest: /usr/local/bin/kubectl
+        state: link
+
+    - name: Clear any earlier Jenkins startup failure state
+      ansible.builtin.command: systemctl reset-failed jenkins
+      changed_when: false
+
+    - name: Restart Jenkins after Docker access is granted
+      ansible.builtin.service:
+        name: jenkins
+        state: restarted
+        enabled: true
+
+    - name: Verify Docker is available
+      ansible.builtin.command: docker --version
+      changed_when: false
+
+    - name: Verify Kubernetes is available
+      ansible.builtin.command: k3s kubectl get nodes
+      changed_when: false
